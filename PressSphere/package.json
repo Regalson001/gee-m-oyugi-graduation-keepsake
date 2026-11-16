@@ -1,0 +1,25 @@
+
+{
+  "name": "presssphere",
+  "version": "1.0.0",
+  "description": "A responsive global news discovery and reading platform.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "news",
+    "global-news",
+    "express",
+    "javascript",
+    "rss",
+    "news-search"
+  ],
+  "author": "Stephen Oyugi",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.1.0",
+    "rss-parser": "^3.13.0"
+  }
+}

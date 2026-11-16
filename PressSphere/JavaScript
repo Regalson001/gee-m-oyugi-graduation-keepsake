@@ -1,0 +1,123 @@
+
+const newsGrid = document.getElementById('news-grid');
+const savedGrid = document.getElementById('saved-grid');
+const searchForm = document.getElementById('search-form');
+const searchInput = document.getElementById('search-input');
+const countryFilter = document.getElementById('country-filter');
+const categoryFilter = document.getElementById('category-filter');
+const resultCount = document.getElementById('result-count');
+
+let articles = [];
+let savedArticles = JSON.parse(localStorage.getItem('presssphere-saved') || '[]');
+
+function escapeHTML(value = '') {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+function renderArticles(items, container, savedView = false) {
+  if (!items.length) {
+    container.innerHTML = `<p class="status">${savedView ? 'No saved articles yet.' : 'No stories found. Try another search.'}</p>`;
+    return;
+  }
+
+  container.innerHTML = items.map(article => {
+    const isSaved = savedArticles.some(item => item.link === article.link);
+
+    return `
+      <article class="news-card">
+        <div class="news-meta">
+          <span>${escapeHTML(article.category || 'News')}</span>
+          <span>${escapeHTML(article.source || 'Global')}</span>
+        </div>
+        <h3>${escapeHTML(article.title)}</h3>
+        <p>${escapeHTML(article.description || 'Open this story to read the full report.')}</p>
+        <div class="card-actions">
+          <a class="read-link" href="${escapeHTML(article.link)}" target="_blank" rel="noopener noreferrer">Read story ↗</a>
+          <button class="save-button" data-link="${encodeURIComponent(article.link)}">
+            ${isSaved ? '★ Saved' : '☆ Save'}
+          </button>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function updateSaved() {
+  localStorage.setItem('presssphere-saved', JSON.stringify(savedArticles));
+  renderArticles(savedArticles, savedGrid, true);
+  renderArticles(articles, newsGrid);
+}
+
+async function loadNews() {
+  newsGrid.innerHTML = '<p class="status">Loading global headlines...</p>';
+  resultCount.textContent = 'Loading...';
+
+  const params = new URLSearchParams({
+    q: searchInput.value.trim(),
+    country: countryFilter.value,
+    category: categoryFilter.value
+  });
+
+  try {
+    const response = await fetch(`/api/news?${params}`);
+
+    if (!response.ok) {
+      throw new Error('Unable to retrieve news.');
+    }
+
+    const data = await response.json();
+    articles = data.articles || [];
+
+    renderArticles(articles, newsGrid);
+    resultCount.textContent = `${articles.length} stories found`;
+  } catch (error) {
+    newsGrid.innerHTML = `<p class="status">Unable to load news. Make sure the PressSphere server is running and try again.</p>`;
+    resultCount.textContent = 'News unavailable';
+  }
+}
+
+searchForm.addEventListener('submit', event => {
+  event.preventDefault();
+  loadNews();
+});
+
+countryFilter.addEventListener('change', loadNews);
+categoryFilter.addEventListener('change', loadNews);
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('.save-button');
+  if (!button) return;
+
+  const link = decodeURIComponent(button.dataset.link);
+  const existing = savedArticles.findIndex(item => item.link === link);
+
+  if (existing >= 0) {
+    savedArticles.splice(existing, 1);
+  } else {
+    const article = articles.find(item => item.link === link);
+    if (article) savedArticles.push(article);
+  }
+
+  updateSaved();
+});
+
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  document.body.classList.toggle('light');
+  localStorage.setItem(
+    'presssphere-theme',
+    document.body.classList.contains('light') ? 'light' : 'dark'
+  );
+});
+
+if (localStorage.getItem('presssphere-theme') === 'light') {
+  document.body.classList.add('light');
+}
+
+renderArticles(savedArticles, savedGrid, true);
+loadNews();
